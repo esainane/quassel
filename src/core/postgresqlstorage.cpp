@@ -1551,12 +1551,13 @@ QList<Message> PostgreSqlStorage::requestMsgs(UserId user, BufferId bufferId, Ms
     while (query.next()) {
         timestamp = query.value(1).toDateTime();
         timestamp.setTimeSpec(Qt::UTC);
-        Message msg(timestamp,
+        FlairedMessage msg(timestamp,
             bufferInfo,
             (Message::Type)query.value(2).toUInt(),
             query.value(5).toString(),
             query.value(4).toString(),
-            (Message::Flags)query.value(3).toUInt());
+            (Message::Flags)query.value(3).toUInt(),
+            '?');
         msg.setMsgId(query.value(0).toInt());
         messagelist << msg;
     }
@@ -1603,12 +1604,13 @@ QList<Message> PostgreSqlStorage::requestAllMsgs(UserId user, MsgId first, MsgId
     for (int i = 0; i < limit && query.next(); i++) {
         timestamp = query.value(1).toDateTime();
         timestamp.setTimeSpec(Qt::UTC);
-        Message msg(timestamp,
+        FlairedMessage msg(timestamp,
             bufferInfoHash[query.value(1).toInt()],
             (Message::Type)query.value(3).toUInt(),
             query.value(6).toString(),
             query.value(5).toString(),
-            (Message::Flags)query.value(4).toUInt());
+            (Message::Flags)query.value(4).toUInt(),
+            '?');
         msg.setMsgId(query.value(0).toInt());
         messagelist << msg;
     }

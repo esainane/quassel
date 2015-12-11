@@ -323,7 +323,7 @@ void CoreSession::processMessages()
             Q_ASSERT(!createBuffer);
             bufferInfo = Core::bufferInfo(user(), rawMsg.networkId, BufferInfo::StatusBuffer, "");
         }
-        Message msg(bufferInfo, rawMsg.type, rawMsg.text, rawMsg.sender, rawMsg.flags);
+        FlairedMessage msg(bufferInfo, rawMsg.type, rawMsg.text, rawMsg.sender, rawMsg.flags, '?');
         if(Core::storeMessage(msg))
             emit displayMsg(msg);
     }
@@ -347,7 +347,7 @@ void CoreSession::processMessages()
                 }
                 bufferInfoCache[rawMsg.networkId][rawMsg.target] = bufferInfo;
             }
-            Message msg(bufferInfo, rawMsg.type, rawMsg.text, rawMsg.sender, rawMsg.flags);
+            FlairedMessage msg(bufferInfo, rawMsg.type, rawMsg.text, rawMsg.sender, rawMsg.flags, '?');
             messages << msg;
         }
 
@@ -363,7 +363,7 @@ void CoreSession::processMessages()
                 // add the StatusBuffer to the Cache in case there are more Messages for the original target
                 bufferInfoCache[rawMsg.networkId][rawMsg.target] = bufferInfo;
             }
-            Message msg(bufferInfo, rawMsg.type, rawMsg.text, rawMsg.sender, rawMsg.flags);
+            FlairedMessage msg(bufferInfo, rawMsg.type, rawMsg.text, rawMsg.sender, rawMsg.flags, '?');
             messages << msg;
         }
 

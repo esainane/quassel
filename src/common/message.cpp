@@ -49,7 +49,7 @@ Message::Message(const QDateTime &ts, const BufferInfo &bufferInfo, Type type, c
 QDataStream &operator<<(QDataStream &out, const Message &msg)
 {
     out << msg.msgId() << (quint32)msg.timestamp().toTime_t() << (quint32)msg.type() << (quint8)msg.flags()
-    << msg.bufferInfo() << msg.sender().toUtf8() << msg.contents().toUtf8();
+        << msg.bufferInfo() << msg.sender().toUtf8() << msg.contents().toUtf8();
     return out;
 }
 
@@ -62,6 +62,7 @@ QDataStream &operator>>(QDataStream &in, Message &msg)
     QByteArray s, m;
     BufferInfo buf;
     in >> msg._msgId >> ts >> t >> f >> buf >> s >> m;
+
     msg._type = (Message::Type)t;
     msg._flags = (Message::Flags)f;
     msg._bufferInfo = buf;
@@ -79,5 +80,39 @@ QDebug operator<<(QDebug dbg, const Message &msg)
     << qPrintable(QString(", Type:")) << msg.type()
     << qPrintable(QString(", Flags:")) << msg.flags() << qPrintable(QString(")"))
     << msg.sender() << ":" << msg.contents();
+    return dbg;
+}
+
+FlairedMessage::FlairedMessage(const BufferInfo &bufferInfo, Type type, const QString &contents, const QString &sender, Flags flags, QChar flair)
+    : Message(bufferInfo, type, contents, sender, flags) {
+    _flair = flair;
+}
+FlairedMessage::FlairedMessage(const QDateTime &ts, const BufferInfo &bufferInfo, Type type, const QString &contents, const QString &sender, Flags flags, QChar flair)
+    : Message(ts, bufferInfo, type, contents, sender, flags), _flair(flair)
+{
+}
+QDataStream &operator<<(QDataStream &out, const FlairedMessage &msg)
+{
+    out << (Message &) msg << msg.flair();
+    return out;
+}
+
+
+QDataStream &operator>>(QDataStream &in, FlairedMessage &msg)
+{
+    QChar fl;
+    in >> (Message &) msg >> fl;
+    msg._flair = fl;
+    return in;
+}
+
+
+QDebug operator<<(QDebug dbg, const FlairedMessage &msg)
+{
+    dbg.nospace() << qPrintable(QString("FlairedMessage(MsgId:")) << msg.msgId()
+    << qPrintable(QString(",")) << msg.timestamp()
+    << qPrintable(QString(", Type:")) << msg.type()
+    << qPrintable(QString(", Flags:")) << msg.flags() << qPrintable(QString(")"))
+    << msg.flair() << msg.sender() << ":" << msg.contents();
     return dbg;
 }
