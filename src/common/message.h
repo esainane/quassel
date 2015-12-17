@@ -26,12 +26,15 @@
 
 #include "bufferinfo.h"
 #include "types.h"
+#include "virtualmetaclass.h"
 
 class Message
 {
     Q_DECLARE_TR_FUNCTIONS(Message)
 
 public:
+    DECLARE_VIRTUAL_METATYPE_PROTO(Message)
+
     /** The different types a message can have for display */
     enum Type {
         Plain        = 0x00001,
@@ -68,6 +71,7 @@ public:
     Message(const BufferInfo &bufferInfo = BufferInfo(), Type type = Plain, const QString &contents = "", const QString &sender = "", Flags flags = None);
     Message(const QDateTime &ts, const BufferInfo &buffer = BufferInfo(), Type type = Plain,
         const QString &contents = "", const QString &sender = "", Flags flags = None);
+    virtual ~Message() {}
 
     inline static Message ChangeOfDay(const QDateTime &day) { return Message(day, BufferInfo(), DayChange); }
     inline const MsgId &msgId() const { return _msgId; }
@@ -87,6 +91,9 @@ public:
 
     inline bool operator<(const Message &other) const { return _msgId < other._msgId; }
 
+    virtual QDataStream &write(QDataStream &out) const;
+    virtual QDataStream &read(QDataStream &in);
+
 private:
     QDateTime _timestamp;
     MsgId _msgId;
@@ -95,19 +102,23 @@ private:
     QString _sender;
     Type _type;
     Flags _flags;
-
-    friend QDataStream &operator>>(QDataStream &in, Message &msg);
 };
 
 class FlairedMessage : public Message {
 public:
+    DECLARE_LEAF_METATYPE_PROTO(FlairedMessage)
+
+    virtual ~FlairedMessage() {}
+
     FlairedMessage(const BufferInfo &bufferInfo = BufferInfo(), Type type = Plain, const QString &contents = "", const QString &sender = "", Flags flags = None, QChar flair = ' ');
     FlairedMessage(const QDateTime &ts, const BufferInfo &buffer = BufferInfo(), Type type = Plain,
         const QString &contents = "", const QString &sender = "", Flags flags = None, QChar flair = ' ');
     inline const QChar &flair() const { return _flair; }
+
+    virtual QDataStream &write(QDataStream &out) const;
+    virtual QDataStream &read(QDataStream &in);
 private:
     QChar _flair;
-    friend QDataStream &operator>>(QDataStream &in, FlairedMessage &msg);
 };
 
 typedef QList<Message> MessageList;
@@ -117,6 +128,9 @@ QDataStream &operator>>(QDataStream &in, Message &msg);
 QDebug operator<<(QDebug dbg, const Message &msg);
 
 Q_DECLARE_METATYPE(Message)
+DECLARE_VIRTUAL_METATYPE(Message)
+Q_DECLARE_METATYPE(FlairedMessage)
 Q_DECLARE_OPERATORS_FOR_FLAGS(Message::Flags)
+
 
 #endif

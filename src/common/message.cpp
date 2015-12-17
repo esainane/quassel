@@ -48,27 +48,37 @@ Message::Message(const QDateTime &ts, const BufferInfo &bufferInfo, Type type, c
 
 QDataStream &operator<<(QDataStream &out, const Message &msg)
 {
-    out << msg.msgId() << (quint32)msg.timestamp().toTime_t() << (quint32)msg.type() << (quint8)msg.flags()
-        << msg.bufferInfo() << msg.sender().toUtf8() << msg.contents().toUtf8();
+    return msg.write(out);
+}
+
+QDataStream &Message::write(QDataStream &out) const
+{
+    out << msgId() << (quint32)timestamp().toTime_t() << (quint32)type() << (quint8)flags()
+        << bufferInfo() << sender().toUtf8() << contents().toUtf8();
     return out;
 }
 
 
 QDataStream &operator>>(QDataStream &in, Message &msg)
 {
+    return msg.read(in);
+}
+
+QDataStream &Message::read(QDataStream &in)
+{
     quint8 f;
     quint32 t;
     quint32 ts;
     QByteArray s, m;
     BufferInfo buf;
-    in >> msg._msgId >> ts >> t >> f >> buf >> s >> m;
+    in >> _msgId >> ts >> t >> f >> buf >> s >> m;
 
-    msg._type = (Message::Type)t;
-    msg._flags = (Message::Flags)f;
-    msg._bufferInfo = buf;
-    msg._timestamp = QDateTime::fromTime_t(ts);
-    msg._sender = QString::fromUtf8(s);
-    msg._contents = QString::fromUtf8(m);
+    _type = (Message::Type)t;
+    _flags = (Message::Flags)f;
+    _bufferInfo = buf;
+    _timestamp = QDateTime::fromTime_t(ts);
+    _sender = QString::fromUtf8(s);
+    _contents = QString::fromUtf8(m);
     return in;
 }
 
@@ -83,6 +93,8 @@ QDebug operator<<(QDebug dbg, const Message &msg)
     return dbg;
 }
 
+DEFINE_VIRTUAL_METATYPE(Message)
+
 FlairedMessage::FlairedMessage(const BufferInfo &bufferInfo, Type type, const QString &contents, const QString &sender, Flags flags, QChar flair)
     : Message(bufferInfo, type, contents, sender, flags) {
     _flair = flair;
@@ -91,21 +103,19 @@ FlairedMessage::FlairedMessage(const QDateTime &ts, const BufferInfo &bufferInfo
     : Message(ts, bufferInfo, type, contents, sender, flags), _flair(flair)
 {
 }
-QDataStream &operator<<(QDataStream &out, const FlairedMessage &msg)
+
+QDataStream &FlairedMessage::write(QDataStream &out) const
 {
-    out << (Message &) msg << msg.flair();
+    Message::write(out);
+    out << _flair;
     return out;
 }
-
-
-QDataStream &operator>>(QDataStream &in, FlairedMessage &msg)
+QDataStream &FlairedMessage::read(QDataStream &in)
 {
-    QChar fl;
-    in >> (Message &) msg >> fl;
-    msg._flair = fl;
+    Message::read(in);
+    in >> _flair;
     return in;
 }
-
 
 QDebug operator<<(QDebug dbg, const FlairedMessage &msg)
 {
@@ -116,3 +126,5 @@ QDebug operator<<(QDebug dbg, const FlairedMessage &msg)
     << msg.flair() << msg.sender() << ":" << msg.contents();
     return dbg;
 }
+
+DEFINE_LEAF_METATYPE(FlairedMessage)
