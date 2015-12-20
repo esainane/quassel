@@ -87,7 +87,7 @@ CoreSession::CoreSession(UserId uid, bool restoreState, QObject *parent)
     connect(p, SIGNAL(disconnected()), SLOT(clientsDisconnected()));
 
     p->attachSlot(SIGNAL(sendInput(BufferInfo, QString)), this, SLOT(msgFromClient(BufferInfo, QString)));
-    p->attachSignal(this, SIGNAL(displayMsg(Message)));
+    p->attachSignal(this, SIGNAL(displayMsg(const Message &)));
     p->attachSignal(this, SIGNAL(displayStatusMsg(QString, QString)));
 
     p->attachSignal(this, SIGNAL(identityCreated(const Identity &)));

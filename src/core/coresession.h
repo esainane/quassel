@@ -140,7 +140,7 @@ signals:
     void sessionState(const Protocol::SessionState &sessionState);
 
     //void msgFromGui(uint netid, QString buf, QString message);
-    void displayMsg(Message &message);
+    void displayMsg(const Message &message);
     void displayStatusMsg(QString, QString);
 
     void scriptResult(QString result);
