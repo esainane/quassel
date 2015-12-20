@@ -153,6 +153,13 @@ public:
         // Our peer isn't new enough. We must downgrade the model for them.
         return s->downgrade(peerVersion, input);
     }
+
+    inline bool typesCompatible(int expected, int actual) {
+        if (expected == actual) return true;
+        if (_objectCompatStrategies.contains(expected)) return true; // FIXME: Should do proper checking
+        return false;
+    }
+
 private:
     template<typename VariantType>
     static int makeInnerVirtualMetaTypeOf(const void *input) {

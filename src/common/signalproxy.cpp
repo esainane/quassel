@@ -706,7 +706,7 @@ bool SignalProxy::invokeSlot(QObject *receiver, int methodId, const QVariantList
             qWarning() << "                            - make sure all your data types are known by the Qt MetaSystem";
             return false;
         }
-        if (args[i] != QMetaType::type(params[i].typeName())) {
+        if (!objectCompat->typesCompatible(args[i], QMetaType::type(params[i].typeName()))) {
             qWarning() << "SignalProxy::invokeSlot(): incompatible param types to invoke" << eMeta->methodName(methodId);
             return false;
         }
