@@ -169,6 +169,7 @@ void DataStreamPeer::dispatch(const RegisterClient &msg) {
     m["MsgType"] = "ClientInit";
     m["ClientVersion"] = msg.clientVersion;
     m["ClientDate"] = msg.buildDate;
+    m["ClientFeatures"] = msg.clientFeatures;
 
     writeMessage(m);
 }
