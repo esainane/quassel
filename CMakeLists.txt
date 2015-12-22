@@ -58,6 +58,9 @@ add_feature_info(WANT_CORE WANT_CORE "Build the core (server) binary")
 add_feature_info(WANT_QTCLIENT WANT_QTCLIENT "Build the client-only binary (requires a core to connect to)")
 add_feature_info(WANT_MONO WANT_MONO "Build the monolithic (all-in-one) binary")
 
+option(WITH_BRINE    "Integrate with libbrine"                  OFF)
+add_feature_info(WITH_BRINE WITH_BRINE "Add libbrine integration to the quassel core")
+
 # Whether to enable KDE integration (work in progress for Qt5 / KDE Frameworks)
 # Note that when building with Qt5, WITH_KDE enables integration with higher-tier KDE frameworks that
 # require runtime support. We still optionally make use of certain Tier 1 frameworks even if WITH_KDE
@@ -428,6 +431,31 @@ check_cxx_source_compiles("
     HAVE_SSL)
 cmake_pop_check_state()
 
+if (WITH_BRINE)
+    # If we wanted to build with brine, we need to find it now.
+    find_package(PkgConfig)
+    pkg_check_modules(PC_LIBBRINE QUIET libbrine)
+    set(LIBBRINE_DEFINITIONS ${PC_LIBBRINE_CFLAGS_OTHER})
+
+    find_path(LIBBRINE_INCLUDE_DIR brine.h
+              HINTS ${PC_LIBBRINE_INCLUDEDIR} ${PC_LIBBRINE_INCLUDE_DIRS}
+              PATH_SUFFIXES libBRINE )
+
+    find_library(LIBBRINE_LIBRARY NAMES brine libbrine
+                 HINTS ${PC_LIBBRINE_LIBDIR} ${PC_LIBBRINE_LIBRARY_DIRS} )
+
+    set(LIBBRINE_LIBRARIES ${LIBBRINE_LIBRARY} )
+    set(LIBBRINE_INCLUDE_DIRS ${LIBBRINE_INCLUDE_DIR} )
+
+    include(FindPackageHandleStandardArgs)
+    # handle the QUIETLY and REQUIRED arguments and set LIBBRINE_FOUND to TRUE
+    # if all listed variables are TRUE
+    find_package_handle_standard_args(Libbrine  DEFAULT_MSG
+                                      LIBBRINE_LIBRARY LIBBRINE_INCLUDE_DIR)
+
+    mark_as_advanced(LIBBRINE_INCLUDE_DIR LIBBRINE_LIBRARY)
+endif()
+
 # Additional compile settings
 #####################################################################
 
@@ -494,6 +522,10 @@ if (HAVE_SSL)
     add_definitions(-DHAVE_SSL)
 endif()
 add_feature_info("SSL support in Qt" HAVE_SSL "Use secure network connections")
+
+if (LIBBRINE_FOUND)
+    add_definitions(-DHAVE_BRINE)
+endif()
 
 # Check for syslog support
 if (NOT WIN32)

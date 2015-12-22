@@ -47,6 +47,13 @@ if(HAVE_SSL)
   include_directories(${OPENSSL_INCLUDE_DIR})
 endif(HAVE_SSL)
 
+if (LIBBRINE_FOUND)
+  add_definitions(-DHAVE_BRINE)
+  include_directories(${LIBBRINE_INCLUDE_DIR})
+  list(APPEND SOURCES brineadapter.cpp)
+  list(APPEND LIBS ${LIBBRINE_LIBRARY})
+endif(HAVE_BRINE)
+
 if (QCA2_FOUND)
     add_definitions(-DHAVE_QCA2)
     include_directories(${QCA2_INCLUDE_DIR})

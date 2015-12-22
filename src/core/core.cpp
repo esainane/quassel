@@ -32,6 +32,10 @@
 #include "sqlitestorage.h"
 #include "util.h"
 
+#ifdef HAVE_BRINE
+#include "brineadapter.h"
+#endif
+
 // migration related
 #include <QFile>
 #ifdef Q_OS_WIN
@@ -78,6 +82,10 @@ void Core::destroy()
 {
     delete instanceptr;
     instanceptr = 0;
+#ifdef HAVE_BRINE
+    delete brineAdapter;
+    brineAdapter = 0;
+#endif
 }
 
 
@@ -213,6 +221,11 @@ void Core::init()
 
     if (Quassel::isOptionSet("oidentd"))
         _oidentdConfigGenerator = new OidentdConfigGenerator(Quassel::isOptionSet("strict-oidentd"), this);
+
+#ifdef HAVE_BRINE
+    brineAdapter = new BrineAdapter();
+    brineAdapter->start();
+#endif
 }
 
 
