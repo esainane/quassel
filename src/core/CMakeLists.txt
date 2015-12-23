@@ -52,7 +52,7 @@ if (LIBBRINE_FOUND)
   include_directories(${LIBBRINE_INCLUDE_DIR})
   list(APPEND SOURCES brineadapter.cpp)
   list(APPEND LIBS ${LIBBRINE_LIBRARY})
-endif(HAVE_BRINE)
+endif(LIBBRINE_FOUND)
 
 if (QCA2_FOUND)
     add_definitions(-DHAVE_QCA2)
