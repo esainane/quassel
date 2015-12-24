@@ -12,7 +12,6 @@ class CoreNetworkConnection : public QObject
 public:
     CoreNetworkConnection();
     virtual ~CoreNetworkConnection() {}
-    virtual void performConnect(Network::Server &server) = 0;
     virtual void performDisconnect(bool requested, bool withReconnect) = 0;
     virtual void socketDisconnected(const CoreIdentity *id) = 0;
     virtual void write(const QByteArray &data) = 0;

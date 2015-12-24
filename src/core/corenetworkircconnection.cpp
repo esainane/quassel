@@ -9,7 +9,7 @@
 #include "eventmanager.h"
 #include "networkevent.h"
 
-CoreNetworkIrcConnection::CoreNetworkIrcConnection(CoreNetwork &network)
+CoreNetworkIrcConnection::CoreNetworkIrcConnection(CoreNetwork &network, Network::Server &server)
     : _network(network)
 {
     connect(&_socketCloseTimer, SIGNAL(timeout()), this, SLOT(socketCloseTimeout()));
@@ -29,15 +29,7 @@ CoreNetworkIrcConnection::CoreNetworkIrcConnection(CoreNetwork &network)
         connect(this, SIGNAL(socketInitialized(const CoreIdentity*, QHostAddress, quint16, QHostAddress, quint16)), Core::instance()->oidentdConfigGenerator(), SLOT(addSocket(const CoreIdentity*, QHostAddress, quint16, QHostAddress, quint16)), Qt::BlockingQueuedConnection);
         connect(this, SIGNAL(socketDisconnected(const CoreIdentity*, QHostAddress, quint16, QHostAddress, quint16)), Core::instance()->oidentdConfigGenerator(), SLOT(removeSocket(const CoreIdentity*, QHostAddress, quint16, QHostAddress, quint16)));
     }
-}
 
-CoreNetworkIrcConnection::~CoreNetworkIrcConnection()
-{
-    disconnect(&socket, 0, this, 0); // this keeps the socket from triggering events during clean up
-}
-
-void CoreNetworkIrcConnection::performConnect(Network::Server &server)
-{
     if (server.useProxy) {
         QNetworkProxy proxy((QNetworkProxy::ProxyType)server.proxyType, server.proxyHost, server.proxyPort, server.proxyUser, server.proxyPass);
         socket.setProxy(proxy);
@@ -67,6 +59,11 @@ void CoreNetworkIrcConnection::performConnect(Network::Server &server)
 #else
     socket.connectToHost(server.host, server.port);
 #endif
+}
+
+CoreNetworkIrcConnection::~CoreNetworkIrcConnection()
+{
+    disconnect(&socket, 0, this, 0); // this keeps the socket from triggering events during clean up
 }
 
 void CoreNetworkIrcConnection::performDisconnect(bool requested, bool withReconnect) {

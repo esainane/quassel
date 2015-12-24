@@ -155,8 +155,7 @@ void CoreNetwork::connectToIrc(bool reconnecting)
     displayStatusMsg(tr("Connecting to %1:%2...").arg(server.host).arg(server.port));
     displayMsg(Message::Server, BufferInfo::StatusBuffer, "", tr("Connecting to %1:%2...").arg(server.host).arg(server.port));
 
-    connection = new CoreNetworkIrcConnection(*this);
-    connection->performConnect(server);
+    connection = new CoreNetworkIrcConnection(*this, server);
 }
 
 

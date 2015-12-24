@@ -17,10 +17,9 @@ class CoreNetworkIrcConnection : public CoreNetworkConnection
 {
     Q_OBJECT
 public:
-    CoreNetworkIrcConnection(CoreNetwork &network);
+    CoreNetworkIrcConnection(CoreNetwork &network, Network::Server &server);
     ~CoreNetworkIrcConnection();
 
-    void performConnect(Network::Server &server);
     void performDisconnect(bool requested, bool withReconnect);
     void socketDisconnected(const CoreIdentity *id);
 
