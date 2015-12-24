@@ -16,10 +16,22 @@ BrineAdapter::BrineAdapter()
 
 int BrineAdapter::net_msgrecv(BrineConnection connection, const char *message, int type)
 {
+    auto it = brineAdapter->_connections.find(connection);
+    if (it == brineAdapter->_connections.end()) return -1;
+    CoreNetwork &network = **it;
+    Message::Type messageType = Message::Server;
+    // IRC numerics. 400-600 is error range; 263 is the "try again" reply, which we also want to mark as an error.
+    if (type == 263 || (type >= 400 && type < 600)) {
+        messageType = Message::Error;
+    }
+    network.displayMsg(messageType, BufferInfo::StatusBuffer, "", QString(message));
     return 0;
 }
 int BrineAdapter::user_msgrecv(BrineConnection connection, const char *message, const char *user)
 {
+    auto it = brineAdapter->_connections.find(connection);
+    if (it == brineAdapter->_connections.end()) return -1;
+    CoreNetwork &network = **it;
     return 0;
 }
 int BrineAdapter::chan_msgrecv(BrineConnection connection, const char *message, const char *channel)
