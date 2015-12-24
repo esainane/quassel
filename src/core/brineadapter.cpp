@@ -14,15 +14,15 @@ BrineAdapter::BrineAdapter()
 }
 
 
-int BrineAdapter::net_msgrecv(const void *connection, const char *message, int type)
+int BrineAdapter::net_msgrecv(BrineConnection connection, const char *message, int type)
 {
     return 0;
 }
-int BrineAdapter::user_msgrecv(const void *connection, const char *message, const char *user)
+int BrineAdapter::user_msgrecv(BrineConnection connection, const char *message, const char *user)
 {
     return 0;
 }
-int BrineAdapter::chan_msgrecv(const void *connection, const char *message, const char *channel)
+int BrineAdapter::chan_msgrecv(BrineConnection connection, const char *message, const char *channel)
 {
     return user_msgrecv(connection, message, channel); // FIXME
 }

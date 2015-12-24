@@ -13,10 +13,11 @@ public:
 
     void run();
 private:
-    QHash<const void *, CoreNetwork *> _connections;
-    static int net_msgrecv(const void *connection, const char *message, int type);
-    static int user_msgrecv(const void *connection, const char *message, const char *user);
-    static int chan_msgrecv(const void *connection, const char *message, const char *channel);
+    typedef const void *BrineConnection;
+    QHash<BrineConnection, CoreNetwork *> _connections;
+    static int net_msgrecv(BrineConnection connection, const char *message, int type);
+    static int user_msgrecv(BrineConnection connection, const char *message, const char *user);
+    static int chan_msgrecv(BrineConnection connection, const char *message, const char *channel);
 };
 
 extern BrineAdapter *brineAdapter;
