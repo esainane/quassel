@@ -5,6 +5,8 @@
 
 #include "brineadapter.h"
 
+BrineAdapter *brineAdapter;
+
 BrineAdapter::BrineAdapter()
 {
 }
