@@ -24,9 +24,19 @@ void BrineAdapter::connect(CoreNetworkBrineConnection *coreFacing)
     QByteArray protocol = server.host.left(index).toUtf8(),
             username = server.host.mid(index + 3).toUtf8(),
             password = server.password.toUtf8();
+    coreFacing->_network.setConnectionState(Network::ConnectionState::Connecting);
     void *conn = brine_connect(protocol, username, password, 0);
+    coreFacing->_network.setConnectionState(Network::ConnectionState::Initializing);
     coreFacing->data = conn;
     _connections.insert(conn, coreFacing);
+    QString nick;
+    auto it = coreFacing->_network.identityPtr()->nicks().begin();
+    if (it == coreFacing->_network.identityPtr()->nicks().end()) {
+        nick = "User";
+    } else {
+        nick = *it;
+    }
+    coreFacing->_network.setMyNick(nick);
 }
 
 void BrineAdapter::disconnect(CoreNetworkBrineConnection *coreFacing)
