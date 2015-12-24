@@ -20,6 +20,10 @@
 
 #include "corenetwork.h"
 
+#ifdef HAVE_BRINE
+#include "brineadapter.h"
+#include "corenetworkbrineconnection.h"
+#endif
 #include "core.h"
 #include "coreidentity.h"
 #include "corenetworkconfig.h"
@@ -155,7 +159,15 @@ void CoreNetwork::connectToIrc(bool reconnecting)
     displayStatusMsg(tr("Connecting to %1:%2...").arg(server.host).arg(server.port));
     displayMsg(Message::Server, BufferInfo::StatusBuffer, "", tr("Connecting to %1:%2...").arg(server.host).arg(server.port));
 
-    connection = new CoreNetworkIrcConnection(*this, server);
+#ifdef HAVE_BRINE
+    if (brineAdapter->compatible(server.host)) {
+        connection = new CoreNetworkBrineConnection(*this, server);
+    }
+    else
+#endif
+    {
+        connection = new CoreNetworkIrcConnection(*this, server);
+    }
 }
 
 
@@ -183,6 +195,8 @@ void CoreNetwork::disconnectFromIrc(bool requested, const QString &reason, bool 
 
     displayMsg(Message::Server, BufferInfo::StatusBuffer, "", tr("Disconnecting. (%1)").arg((!requested && !withReconnect) ? tr("Core Shutdown") : _quitReason));
     connection->performDisconnect(requested, withReconnect);
+    delete connection;
+    connection = 0;
 }
 
 

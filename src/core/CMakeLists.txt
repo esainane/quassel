@@ -19,6 +19,7 @@ set(SOURCES
     coreircuser.cpp
     corenetwork.cpp
     corenetworkconnection.cpp
+    corenetworkbrineconnection.cpp
     corenetworkircconnection.cpp
     corenetworkconfig.cpp
     coresession.cpp
