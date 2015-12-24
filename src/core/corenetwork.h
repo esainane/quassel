@@ -27,13 +27,6 @@
 
 #include <QTimer>
 
-#ifdef HAVE_SSL
-# include <QSslSocket>
-# include <QSslError>
-#else
-# include <QTcpSocket>
-#endif
-
 #ifdef HAVE_QCA2
 #  include "cipher.h"
 #endif
@@ -43,6 +36,7 @@
 #include <functional>
 
 class CoreIdentity;
+class CoreNetworkConnection;
 class CoreUserInputHandler;
 class CoreIgnoreListManager;
 class Event;
@@ -90,13 +84,6 @@ public:
     inline bool isAutoWhoInProgress(const QString &channel) const { return _autoWhoPending.value(channel.toLower(), 0); }
 
     inline UserId userId() const { return _coreSession->user(); }
-
-    inline QAbstractSocket::SocketState socketState() const { return socket.state(); }
-    inline bool socketConnected() const { return socket.state() == QAbstractSocket::ConnectedState; }
-    inline QHostAddress localAddress() const { return socket.localAddress(); }
-    inline QHostAddress peerAddress() const { return socket.peerAddress(); }
-    inline quint16 localPort() const { return socket.localPort(); }
-    inline quint16 peerPort() const { return socket.peerPort(); }
 
     QList<QList<QByteArray>> splitMessage(const QString &cmd, const QString &message, std::function<QList<QByteArray>(QString &)> cmdGenerator);
 
@@ -164,10 +151,6 @@ signals:
     void quitRequested(NetworkId networkId);
     void sslErrors(const QVariant &errorData);
 
-    void newEvent(Event *event);
-    void socketInitialized(const CoreIdentity *identity, const QHostAddress &localAddress, quint16 localPort, const QHostAddress &peerAddress, quint16 peerPort);
-    void socketDisconnected(const CoreIdentity *identity, const QHostAddress &localAddress, quint16 localPort, const QHostAddress &peerAddress, quint16 peerPort);
-
 protected:
     inline virtual IrcChannel *ircChannelFactory(const QString &channelname) { return new CoreIrcChannel(channelname, this); }
     inline virtual IrcUser *ircUserFactory(const QString &hostmask) { return new CoreIrcUser(hostmask, this); }
@@ -179,12 +162,7 @@ protected slots:
     //virtual void removeChansAndUsers();
 
 private slots:
-    void socketHasData();
-    void socketError(QAbstractSocket::SocketError);
-    void socketInitialized();
-    inline void socketCloseTimeout() { socket.abort(); }
     void socketDisconnected();
-    void socketStateChanged(QAbstractSocket::SocketState);
     void networkInitialized();
 
     void sendPerform();
@@ -196,22 +174,10 @@ private slots:
     void sendAutoWho();
     void startAutoWhoCycle();
 
-#ifdef HAVE_SSL
-    void sslErrors(const QList<QSslError> &errors);
-#endif
-
-    void fillBucketAndProcessQueue();
-
-    void writeToSocket(const QByteArray &data);
-
 private:
     CoreSession *_coreSession;
 
-#ifdef HAVE_SSL
-    QSslSocket socket;
-#else
-    QTcpSocket socket;
-#endif
+    CoreNetworkConnection *connection;
 
     CoreUserInputHandler *_userInputHandler;
 
@@ -219,8 +185,6 @@ private:
 
     QTimer _autoReconnectTimer;
     int _autoReconnectCount;
-
-    QTimer _socketCloseTimer;
 
     /* this flag triggers quitRequested() once the socket is closed
      * it is needed to determine whether or not the connection needs to be
@@ -240,16 +204,12 @@ private:
     QHash<QString, int> _autoWhoPending;
     QTimer _autoWhoTimer, _autoWhoCycleTimer;
 
-    QTimer _tokenBucketTimer;
-    int _messageDelay;      // token refill speed in ms
-    int _burstSize;         // size of the token bucket
-    int _tokenBucket;       // the virtual bucket that holds the tokens
-    QList<QByteArray> _msgQueue;
-
     QString _requestedUserModes; // 2 strings separated by a '-' character. first part are requested modes to add, the second to remove
 
     // List of blowfish keys for channels
     QHash<QString, QByteArray> _cipherKeys;
+
+    friend class CoreNetworkIrcConnection;
 };
 
 

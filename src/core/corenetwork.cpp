@@ -18,16 +18,14 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.         *
  ***************************************************************************/
 
-#include <QHostInfo>
-
 #include "corenetwork.h"
 
 #include "core.h"
 #include "coreidentity.h"
 #include "corenetworkconfig.h"
+#include "corenetworkircconnection.h"
 #include "coresession.h"
 #include "coreuserinputhandler.h"
-#include "networkevent.h"
 
 INIT_SYNCABLE_OBJECT(CoreNetwork)
 CoreNetwork::CoreNetwork(const NetworkId &networkid, CoreSession *session)
@@ -46,7 +44,6 @@ CoreNetwork::CoreNetwork(const NetworkId &networkid, CoreSession *session)
     _requestedUserModes('-')
 {
     _autoReconnectTimer.setSingleShot(true);
-    connect(&_socketCloseTimer, SIGNAL(timeout()), this, SLOT(socketCloseTimeout()));
 
     setPingInterval(networkConfig()->pingInterval());
     connect(&_pingTimer, SIGNAL(timeout()), this, SLOT(sendPing()));
@@ -68,22 +65,6 @@ CoreNetwork::CoreNetwork(const NetworkId &networkid, CoreSession *session)
     connect(&_autoReconnectTimer, SIGNAL(timeout()), this, SLOT(doAutoReconnect()));
     connect(&_autoWhoTimer, SIGNAL(timeout()), this, SLOT(sendAutoWho()));
     connect(&_autoWhoCycleTimer, SIGNAL(timeout()), this, SLOT(startAutoWhoCycle()));
-    connect(&_tokenBucketTimer, SIGNAL(timeout()), this, SLOT(fillBucketAndProcessQueue()));
-
-    connect(&socket, SIGNAL(connected()), this, SLOT(socketInitialized()));
-    connect(&socket, SIGNAL(error(QAbstractSocket::SocketError)), this, SLOT(socketError(QAbstractSocket::SocketError)));
-    connect(&socket, SIGNAL(stateChanged(QAbstractSocket::SocketState)), this, SLOT(socketStateChanged(QAbstractSocket::SocketState)));
-    connect(&socket, SIGNAL(readyRead()), this, SLOT(socketHasData()));
-#ifdef HAVE_SSL
-    connect(&socket, SIGNAL(encrypted()), this, SLOT(socketInitialized()));
-    connect(&socket, SIGNAL(sslErrors(const QList<QSslError> &)), this, SLOT(sslErrors(const QList<QSslError> &)));
-#endif
-    connect(this, SIGNAL(newEvent(Event *)), coreSession()->eventManager(), SLOT(postEvent(Event *)));
-
-    if (Quassel::isOptionSet("oidentd")) {
-        connect(this, SIGNAL(socketInitialized(const CoreIdentity*, QHostAddress, quint16, QHostAddress, quint16)), Core::instance()->oidentdConfigGenerator(), SLOT(addSocket(const CoreIdentity*, QHostAddress, quint16, QHostAddress, quint16)), Qt::BlockingQueuedConnection);
-        connect(this, SIGNAL(socketDisconnected(const CoreIdentity*, QHostAddress, quint16, QHostAddress, quint16)), Core::instance()->oidentdConfigGenerator(), SLOT(removeSocket(const CoreIdentity*, QHostAddress, quint16, QHostAddress, quint16)));
-    }
 }
 
 
@@ -91,7 +72,6 @@ CoreNetwork::~CoreNetwork()
 {
     if (connectionState() != Disconnected && connectionState() != Network::Reconnecting)
         disconnectFromIrc(false);  // clean up, but this does not count as requested disconnect!
-    disconnect(&socket, 0, this, 0); // this keeps the socket from triggering events during clean up
     delete _userInputHandler;
 }
 
@@ -175,35 +155,8 @@ void CoreNetwork::connectToIrc(bool reconnecting)
     displayStatusMsg(tr("Connecting to %1:%2...").arg(server.host).arg(server.port));
     displayMsg(Message::Server, BufferInfo::StatusBuffer, "", tr("Connecting to %1:%2...").arg(server.host).arg(server.port));
 
-    if (server.useProxy) {
-        QNetworkProxy proxy((QNetworkProxy::ProxyType)server.proxyType, server.proxyHost, server.proxyPort, server.proxyUser, server.proxyPass);
-        socket.setProxy(proxy);
-    }
-    else {
-        socket.setProxy(QNetworkProxy::NoProxy);
-    }
-
-    enablePingTimeout();
-
-    // Qt caches DNS entries for a minute, resulting in round-robin (e.g. for chat.freenode.net) not working if several users
-    // connect at a similar time. QHostInfo::fromName(), however, always performs a fresh lookup, overwriting the cache entry.
-    QHostInfo::fromName(server.host);
-
-#ifdef HAVE_SSL
-    if (server.useSsl) {
-        CoreIdentity *identity = identityPtr();
-        if (identity) {
-            socket.setLocalCertificate(identity->sslCert());
-            socket.setPrivateKey(identity->sslKey());
-        }
-        socket.connectToHostEncrypted(server.host, server.port);
-    }
-    else {
-        socket.connectToHost(server.host, server.port);
-    }
-#else
-    socket.connectToHost(server.host, server.port);
-#endif
+    connection = new CoreNetworkIrcConnection(*this);
+    connection->performConnect(server);
 }
 
 
@@ -215,7 +168,6 @@ void CoreNetwork::disconnectFromIrc(bool requested, const QString &reason, bool 
         _autoReconnectCount = 0; // prohibiting auto reconnect
     }
     disablePingTimeout();
-    _msgQueue.clear();
 
     IrcUser *me_ = me();
     if (me_) {
@@ -231,19 +183,7 @@ void CoreNetwork::disconnectFromIrc(bool requested, const QString &reason, bool 
         _quitReason = reason;
 
     displayMsg(Message::Server, BufferInfo::StatusBuffer, "", tr("Disconnecting. (%1)").arg((!requested && !withReconnect) ? tr("Core Shutdown") : _quitReason));
-    if (socket.state() == QAbstractSocket::UnconnectedState) {
-        socketDisconnected();
-    } else {
-        if (socket.state() == QAbstractSocket::ConnectedState) {
-            userInputHandler()->issueQuit(_quitReason);
-        } else {
-            socket.close();
-        }
-        if (requested || withReconnect) {
-            // the irc server has 10 seconds to close the socket
-            _socketCloseTimer.start(10000);
-        }
-    }
+    connection->performDisconnect(requested, withReconnect);
 }
 
 
@@ -255,10 +195,7 @@ void CoreNetwork::userInput(BufferInfo buf, QString msg)
 
 void CoreNetwork::putRawLine(QByteArray s)
 {
-    if (_tokenBucket > 0)
-        writeToSocket(s);
-    else
-        _msgQueue.append(s);
+    connection->write(s);
 }
 
 
@@ -416,104 +353,14 @@ void CoreNetwork::setMyNick(const QString &mynick)
         networkInitialized();
 }
 
-
-void CoreNetwork::socketHasData()
-{
-    while (socket.canReadLine()) {
-        QByteArray s = socket.readLine();
-        if (s.endsWith("\r\n"))
-            s.chop(2);
-        else if (s.endsWith("\n"))
-            s.chop(1);
-        NetworkDataEvent *event = new NetworkDataEvent(EventManager::NetworkIncoming, this, s);
-        event->setTimestamp(QDateTime::currentDateTimeUtc());
-        emit newEvent(event);
-    }
-}
-
-
-void CoreNetwork::socketError(QAbstractSocket::SocketError error)
-{
-    if (_quitRequested && error == QAbstractSocket::RemoteHostClosedError)
-        return;
-
-    _previousConnectionAttemptFailed = true;
-    qWarning() << qPrintable(tr("Could not connect to %1 (%2)").arg(networkName(), socket.errorString()));
-    emit connectionError(socket.errorString());
-    displayMsg(Message::Error, BufferInfo::StatusBuffer, "", tr("Connection failure: %1").arg(socket.errorString()));
-    emitConnectionError(socket.errorString());
-    if (socket.state() < QAbstractSocket::ConnectedState) {
-        socketDisconnected();
-    }
-}
-
-
-void CoreNetwork::socketInitialized()
-{
-    CoreIdentity *identity = identityPtr();
-    if (!identity) {
-        qCritical() << "Identity invalid!";
-        disconnectFromIrc();
-        return;
-    }
-
-    Server server = usedServer();
-
-#ifdef HAVE_SSL
-    // Non-SSL connections enter here only once, always emit socketInitialized(...) in these cases
-    // SSL connections call socketInitialized() twice, only emit socketInitialized(...) on the first (not yet encrypted) run
-    if (!server.useSsl || !socket.isEncrypted()) {
-        emit socketInitialized(identity, localAddress(), localPort(), peerAddress(), peerPort());
-    }
-
-    if (server.useSsl && !socket.isEncrypted()) {
-        // We'll finish setup once we're encrypted, and called again
-        return;
-    }
-#else
-    emit socketInitialized(identity, localAddress(), localPort(), peerAddress(), peerPort());
-#endif
-
-    socket.setSocketOption(QAbstractSocket::KeepAliveOption, true);
-
-    // TokenBucket to avoid sending too much at once
-    _messageDelay = 2200;  // this seems to be a safe value (2.2 seconds delay)
-    _burstSize = 5;
-    _tokenBucket = _burstSize; // init with a full bucket
-    _tokenBucketTimer.start(_messageDelay);
-
-    if (networkInfo().useSasl) {
-        putRawLine(serverEncode(QString("CAP REQ :sasl")));
-    }
-    if (!server.password.isEmpty()) {
-        putRawLine(serverEncode(QString("PASS %1").arg(server.password)));
-    }
-    QString nick;
-    if (identity->nicks().isEmpty()) {
-        nick = "quassel";
-        qWarning() << "CoreNetwork::socketInitialized(): no nicks supplied for identity Id" << identity->id();
-    }
-    else {
-        nick = identity->nicks()[0];
-    }
-    putRawLine(serverEncode(QString("NICK :%1").arg(nick)));
-    putRawLine(serverEncode(QString("USER %1 8 * :%2").arg(identity->ident(), identity->realName())));
-}
-
-
 void CoreNetwork::socketDisconnected()
 {
     disablePingTimeout();
-    _msgQueue.clear();
 
     _autoWhoCycleTimer.stop();
     _autoWhoTimer.stop();
     _autoWhoQueue.clear();
     _autoWhoPending.clear();
-
-    _socketCloseTimer.stop();
-
-    _tokenBucketTimer.stop();
 
     IrcUser *me_ = me();
     if (me_) {
@@ -523,7 +370,7 @@ void CoreNetwork::socketDisconnected()
 
     setConnected(false);
     emit disconnected(networkId());
-    emit socketDisconnected(identityPtr(), localAddress(), localPort(), peerAddress(), peerPort());
+    connection->socketDisconnected(identityPtr());
     if (_quitRequested) {
         _quitRequested = false;
         setConnectionState(Network::Disconnected);
@@ -536,31 +383,6 @@ void CoreNetwork::socketDisconnected()
         else
             _autoReconnectTimer.start();
     }
-}
-
-
-void CoreNetwork::socketStateChanged(QAbstractSocket::SocketState socketState)
-{
-    Network::ConnectionState state;
-    switch (socketState) {
-    case QAbstractSocket::UnconnectedState:
-        state = Network::Disconnected;
-        socketDisconnected();
-        break;
-    case QAbstractSocket::HostLookupState:
-    case QAbstractSocket::ConnectingState:
-        state = Network::Connecting;
-        break;
-    case QAbstractSocket::ConnectedState:
-        state = Network::Initializing;
-        break;
-    case QAbstractSocket::ClosingState:
-        state = Network::Disconnecting;
-        break;
-    default:
-        state = Network::Disconnected;
-    }
-    setConnectionState(state);
 }
 
 
@@ -815,7 +637,8 @@ void CoreNetwork::sendPing()
     uint now = QDateTime::currentDateTime().toTime_t();
     if (_pingCount != 0) {
         qDebug() << "UserId:" << userId() << "Network:" << networkName() << "missed" << _pingCount << "pings."
-                 << "BA:" << socket.bytesAvailable() << "BTW:" << socket.bytesToWrite();
+//                 << "BA:" << socket.bytesAvailable() << "BTW:" << socket.bytesToWrite();
+                    ;
     }
     if ((int)_pingCount >= networkConfig()->maxPingCount() && now - _lastPingTime <= (uint)(_pingTimer.interval() / 1000) + 1) {
         // the second check compares the actual elapsed time since the last ping and the pingTimer interval
@@ -916,38 +739,6 @@ void CoreNetwork::sendAutoWho()
         startAutoWhoCycle();
     }
 }
-
-
-#ifdef HAVE_SSL
-void CoreNetwork::sslErrors(const QList<QSslError> &sslErrors)
-{
-    Q_UNUSED(sslErrors)
-    socket.ignoreSslErrors();
-    // TODO errorhandling
-}
-
-
-#endif  // HAVE_SSL
-
-void CoreNetwork::fillBucketAndProcessQueue()
-{
-    if (_tokenBucket < _burstSize) {
-        _tokenBucket++;
-    }
-
-    while (_msgQueue.size() > 0 && _tokenBucket > 0) {
-        writeToSocket(_msgQueue.takeFirst());
-    }
-}
-
-
-void CoreNetwork::writeToSocket(const QByteArray &data)
-{
-    socket.write(data);
-    socket.write("\r\n");
-    _tokenBucket--;
-}
-
 
 Network::Server CoreNetwork::usedServer() const
 {

@@ -18,6 +18,8 @@ set(SOURCES
     coreirclisthelper.cpp
     coreircuser.cpp
     corenetwork.cpp
+    corenetworkconnection.cpp
+    corenetworkircconnection.cpp
     corenetworkconfig.cpp
     coresession.cpp
     coresessioneventprocessor.cpp
