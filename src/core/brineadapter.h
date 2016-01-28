@@ -4,18 +4,48 @@
 #include <QThread>
 #include <QHash>
 
+#include <brine.h>
+
 #include "corenetwork.h"
 
+
 class CoreNetworkBrineConnection;
+
+/* Basic helper object for forwarding information to the downstream network thread */
+class BrineAdapterConnection : public QObject {
+    Q_OBJECT
+public:
+    BrineAdapterConnection(CoreNetworkBrineConnection *net, brine_handle handle);
+
+signals:
+    void setOwnNick(const QString &nick);
+    void receiveNetworkMessage(const QString &message, int type);
+    void receiveUserMessage(const QString &message, const QString &user);
+    void receiveChannelMessage(const QString &message, const QString &sender, const QString &channel);
+    void addUser(const QString &handle);
+    void renameUser(const QString &handle, const QString &newhandle);
+    void removeUser(const QString &handle);
+    void addChannel(const QString &handle);
+    void joinChannel(const QString &handle, const QString &channel);
+public slots:
+    void putLine(const QByteArray &);
+    void disconnectFromBrine();
+private:
+    brine_handle upstream;
+
+    friend class BrineAdapter;
+};
+
 class BrineAdapter : public QThread
 {
+    typedef brine_handle BrineConnection;
 public:
     BrineAdapter();
 
     void run();
 
     void connect(CoreNetworkBrineConnection *coreFacing);
-    void disconnect(CoreNetworkBrineConnection *coreFacing);
+    void disconnectFromUpstream(BrineConnection upstream);
 
     /**
      * Check the parameter is a valid protocol specification, of the form
@@ -29,11 +59,13 @@ public:
      */
     bool compatible(QString specification);
 private:
-    typedef const void *BrineConnection;
-    QHash<BrineConnection, CoreNetworkBrineConnection *> _connections;
-    static int net_msgrecv(BrineConnection connection, const char *message, int type);
-    static int user_msgrecv(BrineConnection connection, const char *message, const char *user);
-    static int chan_msgrecv(BrineConnection connection, const char *message, const char *channel);
+    /* Do not use */
+    void disconnect(CoreNetworkBrineConnection *coreFacing);
+
+    template<typename Fn, Fn fn, typename... Args>
+    static int wrap_brine(BrineConnection connection, Args... args);
+
+    QHash<BrineConnection, BrineAdapterConnection *> _connections;
 };
 
 extern BrineAdapter *brineAdapter;

@@ -29,6 +29,7 @@ public:
     inline QHostAddress peerAddress() const { return socket.peerAddress(); }
     inline quint16 localPort() const { return socket.localPort(); }
     inline quint16 peerPort() const { return socket.peerPort(); }
+    inline void init() {}
 signals:
     void socketInitialized(const CoreIdentity *identity, const QHostAddress &localAddress, quint16 localPort, const QHostAddress &peerAddress, quint16 peerPort);
     void socketDisconnected(const CoreIdentity *identity, const QHostAddress &localAddress, quint16 localPort, const QHostAddress &peerAddress, quint16 peerPort);

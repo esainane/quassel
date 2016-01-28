@@ -15,6 +15,7 @@ public:
     virtual void performDisconnect(bool requested, bool withReconnect) = 0;
     virtual void socketDisconnected(const CoreIdentity *id) = 0;
     virtual void write(const QByteArray &data) = 0;
+    virtual void init() = 0;
 protected:
     bool tryOrQueue(const QByteArray &forQueue);
     void setup();

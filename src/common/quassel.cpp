@@ -195,7 +195,10 @@ void Quassel::registerMetaTypes()
 #define REGISTER_COMPATTYPE(Type, FeatureFlag, FallbackType) REGISTER_TYPE(Type); \
     ObjectCompat::DowngraderRegistreeFactory<Type, FallbackType>::create<&protocolDowngrade<Type, FallbackType>>::forVersionsWithout(FeatureFlag);
     REGISTER_TYPE(Message);
+    REGISTER_TYPE(Message::Type);
+    REGISTER_TYPE(Message::Flags);
     REGISTER_TYPE(BufferInfo);
+    REGISTER_TYPE(BufferInfo::Type);
     REGISTER_TYPE(NetworkInfo);
     REGISTER_TYPE(Network::Server);
     REGISTER_TYPE(Identity);

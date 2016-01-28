@@ -168,6 +168,8 @@ void CoreNetwork::connectToIrc(bool reconnecting)
     {
         connection = new CoreNetworkIrcConnection(*this, server);
     }
+
+    connection->init();
 }
 
 
