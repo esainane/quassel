@@ -35,6 +35,7 @@ INIT_SYNCABLE_OBJECT(CoreNetwork)
 CoreNetwork::CoreNetwork(const NetworkId &networkid, CoreSession *session)
     : Network(networkid, session),
     _coreSession(session),
+    connection(0),
     _userInputHandler(new CoreUserInputHandler(this)),
     _autoReconnectCount(0),
     _quitRequested(false),
@@ -76,6 +77,12 @@ CoreNetwork::~CoreNetwork()
 {
     if (connectionState() != Disconnected && connectionState() != Network::Reconnecting)
         disconnectFromIrc(false);  // clean up, but this does not count as requested disconnect!
+
+    if (connection) {
+        delete connection;
+        connection = 0;
+    }
+
     delete _userInputHandler;
 }
 
@@ -159,6 +166,10 @@ void CoreNetwork::connectToIrc(bool reconnecting)
     displayStatusMsg(tr("Connecting to %1:%2...").arg(server.host).arg(server.port));
     displayMsg(Message::Server, BufferInfo::StatusBuffer, "", tr("Connecting to %1:%2...").arg(server.host).arg(server.port));
 
+    if (connection) {
+        delete connection;
+        connection = 0;
+    }
 #ifdef HAVE_BRINE
     if (brineAdapter->compatible(server.host)) {
         connection = new CoreNetworkBrineConnection(*this, server);
@@ -197,8 +208,6 @@ void CoreNetwork::disconnectFromIrc(bool requested, const QString &reason, bool 
 
     displayMsg(Message::Server, BufferInfo::StatusBuffer, "", tr("Disconnecting. (%1)").arg((!requested && !withReconnect) ? tr("Core Shutdown") : _quitReason));
     connection->performDisconnect(requested, withReconnect);
-    delete connection;
-    connection = 0;
 }
 
 
