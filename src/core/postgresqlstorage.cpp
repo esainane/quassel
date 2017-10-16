@@ -1702,6 +1702,56 @@ QList<Message> PostgreSqlStorage::requestAllMsgs(UserId user, MsgId first, MsgId
     return messagelist;
 }
 
+QMap<UserId, QSet<QString>> PostgreSqlStorage::getAllSysidents() {
+    QMap<UserId, QSet<QString>> idents;
+    QSqlDatabase db = logDb();
+    if (!beginReadOnlyTransaction(db)) {
+        qWarning() << "PostgreSqlStorage::getAllSysidents(): cannot start read only transaction!";
+        qWarning() << " -" << qPrintable(db.lastError().text());
+        return idents;
+    }
+
+    QSqlQuery query(db);
+    query.prepare(queryString("select_all_sysidents"));
+    safeExec(query);
+    if (!watchQuery(query)) {
+        db.rollback();
+        return idents;
+    }
+
+    while (query.next()) {
+        idents[query.value(0).toInt()].insert(query.value(1).toString());
+    }
+
+    db.commit();
+    return idents;
+}
+
+QMap<UserId, QString> PostgreSqlStorage::getAllAuthusernames() {
+    QMap<UserId, QString> authusernames;
+    QSqlDatabase db = logDb();
+    if (!beginReadOnlyTransaction(db)) {
+        qWarning() << "PostgreSqlStorage::getAllAuthusernames(): cannot start read only transaction!";
+        qWarning() << " -" << qPrintable(db.lastError().text());
+        return authusernames;
+    }
+
+    QSqlQuery query(db);
+    query.prepare(queryString("select_all_authusernames"));
+    safeExec(query);
+    if (!watchQuery(query)) {
+        db.rollback();
+        return authusernames;
+    }
+
+    while (query.next()) {
+        authusernames[query.value(0).toInt()] = query.value(1).toString();
+    }
+
+    db.commit();
+    return authusernames;
+}
+
 bool PostgreSqlStorage::checkSysident(UserId user, QString sysident) {
     QSqlQuery query(logDb());
     query.prepare(queryString("select_checksysident"));

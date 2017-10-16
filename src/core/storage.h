@@ -442,6 +442,16 @@ public slots:
      */
     virtual QList<Message> requestAllMsgs(UserId user, MsgId first = -1, MsgId last = -1, int limit = -1) = 0;
 
+    //! Fetch all sysident mappings
+    /** \return           Map of all current UserIds to permitted idents
+     */
+    virtual QMap<UserId, QSet<QString>> getAllSysidents() = 0;
+
+    //! Fetch all authusernames
+    /** \return           Map of all current UserIds to permitted idents
+     */
+    virtual QMap<UserId, QString> getAllAuthusernames() = 0;
+
     //! Check for a user -> sysident mapping
     /** \param user      The user for the sysident
      *  \param sysident  The sysident the user wishes to use

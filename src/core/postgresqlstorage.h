@@ -106,6 +106,8 @@ public slots:
     QList<Message> requestAllMsgs(UserId user, MsgId first = -1, MsgId last = -1, int limit = -1) override;
 
     /* Sysident handling */
+    virtual QMap<UserId, QSet<QString>> getAllSysidents();
+    virtual QMap<UserId, QString> getAllAuthusernames();
     virtual bool checkSysident(UserId user, QString sysident);
     virtual void insertSysident(UserId user, QString sysident);
     virtual const QString getAuthusername(UserId user);

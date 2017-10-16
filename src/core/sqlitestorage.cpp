@@ -1820,9 +1820,51 @@ QList<Message> SqliteStorage::requestAllMsgs(UserId user, MsgId first, MsgId las
     return messagelist;
 }
 
-bool SqliteStorage::checkSysident(UserId user, QString sysident) {
-    UserId userId;
+QMap<UserId, QSet<QString>> SqliteStorage::getAllSysidents()
+{
+    QMap<UserId, QSet<QString>> idents;
 
+    QSqlDatabase db = logDb();
+    db.transaction();
+    {
+        QSqlQuery query(db);
+        query.prepare(queryString("select_all_sysidents"));
+
+        lockForRead();
+        safeExec(query);
+        watchQuery(query);
+        while (query.next()) {
+            idents[query.value(0).toInt()].insert(query.value(1).toString());
+        }
+    }
+    db.commit();
+    unlock();
+    return idents;
+}
+
+QMap<UserId, QString> SqliteStorage::getAllAuthusernames()
+{
+    QMap<UserId, QString> authusernames;
+
+    QSqlDatabase db = logDb();
+    db.transaction();
+    {
+        QSqlQuery query(db);
+        query.prepare(queryString("select_all_authusernames"));
+
+        lockForRead();
+        safeExec(query);
+        watchQuery(query);
+        while (query.next()) {
+            authusernames[query.value(0).toInt()] = query.value(1).toString();
+        }
+    }
+    db.commit();
+    unlock();
+    return authusernames;
+}
+
+bool SqliteStorage::checkSysident(UserId user, QString sysident) {
     QSqlQuery query(logDb());
     query.prepare(queryString("select_checksysident"));
     query.bindValue(":userid", user.toInt());

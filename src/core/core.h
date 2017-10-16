@@ -590,6 +590,13 @@ public:
         return instance()->_storage->getAuthusername(user);
     }
 
+    //! Get a usable sysident for the given user in strict-oidentd mode
+    /** \param user    The user to retrieve the sysident for
+     *  \param desired The sysident the user wishes to use
+     *  \return The desired sysident if permitted, the authusername otherwise
+     */
+    QString strictSysident(UserId user, QString desired);
+
     static inline QDateTime startTime() { return instance()->_startTime; }
     static inline bool isConfigured() { return instance()->_configured; }
     static bool sslSupported();
@@ -600,6 +607,8 @@ public:
      * @return True if certificates reloaded successfully, otherwise false.
      */
     static bool reloadCerts();
+
+    static void cacheSysident();
 
     static QVariantList backendInfo();
     static QVariantList authenticatorInfo();
@@ -684,6 +693,8 @@ private:
     DeferredSharedPtr<Storage>       _storage;        ///< Active storage backend
     DeferredSharedPtr<Authenticator> _authenticator;  ///< Active authenticator
     QTimer _storageSyncTimer;
+    QMap<UserId, QSet<QString>> _sysidentAliases;
+    QMap<UserId, QString> _authusernames;
 
 #ifdef HAVE_SSL
     SslServer _server, _v6server;

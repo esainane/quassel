@@ -509,18 +509,7 @@ void CoreSession::createIdentity(const Identity &identity, const QVariantMap &ad
 }
 
 const QString CoreSession::strictSysident(const QString &desired) {
-    if (Core::checkSysident(_user, desired)) {
-        // If our desired sysident is allowed, use it!
-        return desired;
-    }
-    // If not, default to the authusername.
-    // TODO: Is there another line in the database we can default to before resorting to using the authusername?
-    const QString authusername = Core::getAuthusername(_user);
-    if (!Core::checkSysident(_user, authusername)) {
-        // Speed things up next time by storing the authusername
-        Core::insertSysident(_user, authusername);
-    }
-    return authusername;
+    return Core::instance()->strictSysident(_user, desired);
 }
 
 void CoreSession::createIdentity(const CoreIdentity &identity)

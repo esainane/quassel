@@ -236,8 +236,12 @@ void Core::init()
     connect(&_v6server, SIGNAL(newConnection()), this, SLOT(incomingConnection()));
     if (!startListening()) exit(1);  // TODO make this less brutal
 
-    if (Quassel::isOptionSet("oidentd"))
+    if (Quassel::isOptionSet("oidentd")) {
         _oidentdConfigGenerator = new OidentdConfigGenerator(Quassel::isOptionSet("strict-oidentd"), this);
+        if (Quassel::isOptionSet("strict-oidentd")) {
+            cacheSysident();
+        }
+    }
 }
 
 
@@ -548,6 +552,53 @@ bool Core::reloadCerts()
 #endif
 }
 
+void Core::cacheSysident() {
+    instance()->_authusernames = instance()->_storage->getAllAuthusernames();
+    instance()->_sysidentAliases = instance()->_storage->getAllSysidents();
+}
+
+QString Core::strictSysident(UserId user, QString desired) {
+    QMap<UserId, QSet<QString>> *allAliases = &instance()->_sysidentAliases;
+    QMap<UserId, QString> *allAuthusernames = &instance()->_authusernames;
+    auto aliases = allAliases->find(user);
+    auto authusername = allAuthusernames->find(user);
+    if (aliases == allAliases->end() || authusername == allAuthusernames->end()) {
+        // A new user got added since we last pulled our cache from the database.
+        // There's no way to avoid a database hit - we don't even know the authname!
+        cacheSysident();
+        allAliases = &instance()->_sysidentAliases;
+        aliases = allAliases->find(user);
+        authusername = allAuthusernames->find(user);
+        if (authusername == allAuthusernames->end()) {
+            // ...something very weird is going on if we ended up here (an active CoreSession without a corresponding database entry?)
+            QDebug d = qWarning();
+            d << "Unable to find authusername for UserId" << user;
+            d.nospace();
+            d << ", this should never happen!";
+            return "unknown"; // Should we just terminate the program instead?
+        }
+        if (aliases == allAliases->end()) {
+            // Still nothing! Add the authusername to the database and to our cache so that we never need to go through this again.
+            Core::insertSysident(user, *authusername);
+            QSet<QString> n;
+            n.insert(*authusername);
+            (*allAliases)[user] = n;
+            return *authusername;
+        }
+    }
+    // aliases and authusername are both iterators to valid objects.
+    if (aliases->contains(desired)) {
+        // If our desired sysident is allowed, use it!
+        return desired;
+    }
+    // If not, default to the authusername.
+    if (!aliases->contains(*authusername)) {
+        // Potentially speed things up next time by storing the authusername
+        Core::insertSysident(user, *authusername);
+        aliases->insert(*authusername);
+    }
+    return *authusername;
+}
 
 bool Core::startListening()
 {

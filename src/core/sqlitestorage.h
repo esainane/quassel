@@ -111,6 +111,10 @@ public slots:
     virtual void insertSysident(UserId user, QString sysident);
     virtual const QString getAuthusername(UserId user);
 
+    /* Sysident caching */
+    virtual QMap<UserId, QSet<QString>> getAllSysidents();
+    virtual QMap<UserId, QString> getAllAuthusernames();
+
 protected:
     void setConnectionProperties(const QVariantMap & /* properties */)  override {}
     QString driverName()  override { return "QSQLITE"; }

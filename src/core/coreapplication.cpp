@@ -65,7 +65,8 @@ bool CoreApplicationInternal::init()
 bool CoreApplicationInternal::reloadConfig()
 {
     if (_coreCreated) {
-        // Currently, only reloading SSL certificates is supported
+        // Currently, only reloading SSL certificates and the sysident cache is supported
+        Core::cacheSysident();
         return Core::reloadCerts();
     } else {
         return false;
